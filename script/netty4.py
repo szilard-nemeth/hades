@@ -921,13 +921,18 @@ class GeneratedOutputFiles:
             return []
         return self._curr_files_dict[out_type]
 
-    def get_all_for_context_except_last_tc(self, out_type, last_tc_no: int) -> List[str]:
-        result = []
+    def get_all_for_context_except_last_tc(self, out_type: OutputFileType, last_tc_no: int) -> List[str]:
+        all_files_for_type = []
         ctx_files = self._files[self.ctx]
         for tc, dic in ctx_files.items():
             files = dic[out_type]
-            result.extend(files)
-        return list(filter(lambda f: f"tc{last_tc_no}_" not in f, result))
+            all_files_for_type.extend(files)
+
+        LOG.debug("Found all files for type '%s': \n%s", out_type, all_files_for_type)
+        filtered_files = list(filter(lambda f: f"tc{last_tc_no}_" not in f, all_files_for_type))
+        LOG.debug("Going to remove files: %s", filtered_files)
+
+        return filtered_files
 
     def get_all_for_current_ctx(self):
         return list(itertools.chain.from_iterable(self._curr_files_dict.values()))
