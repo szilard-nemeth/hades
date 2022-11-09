@@ -660,7 +660,7 @@ class Netty4TestConfig:
     LIMIT_TESTCASES = False
     QUICK_MODE = False
     # testcase_limit = 1 if QUICK_MODE or LIMIT_TESTCASES else TC_LIMIT_UNLIMITED
-    testcase_limit = 2
+    testcase_limit = 2 # TODO remove this limit
     enable_compilation = False if QUICK_MODE else True
     allow_verification_failure = True if QUICK_MODE else False
 
@@ -1084,6 +1084,10 @@ class Compiler:
                     self._cache.save_modules(comp_context)
             elif expect_changed_modules and all_loaded:
                 # Deploy even if we did not perform compilation
+                # TODO In theory, this can be buggy as it is using the standard $HADOOP_REPO$/** files.
+                #  Should use the files found in cache.
+                #  Example: commit hash is the same as for cached jars + patch file is also the same, but a previous build
+                #  was executed on a different commit, we are using wrong jars then.
                 self.handler.deploy()
 
 
