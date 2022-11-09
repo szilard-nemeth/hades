@@ -386,6 +386,7 @@ class OutputFileWriter:
     def update_with_context_and_testcase(self, workdir, context, testcase):
         self.workdir = workdir
         self.context = context
+        # TODO tc_no should be property of testcase?
         self.tc_no = self.tc_no + 1
         self.tc = testcase
         self._generated_files.update_with_ctx_and_tc(self.context, self.tc)
@@ -553,6 +554,7 @@ class OutputFileWriter:
 
     def _decompress_logs(self, src_type: 'OutputFileType', dst_type: 'OutputFileType',
                          remove_src_file=False):
+        removed_files = []
         for tar_file in self._generated_files.get(src_type):
             target_dir = os.path.join(self.current_tc_dir)
             LOG.debug("[%s] Extracting file '%s' to %s", self.context, tar_file, target_dir)
@@ -563,13 +565,31 @@ class OutputFileWriter:
             if remove_src_file and os.path.isfile(tar_file):
                 LOG.debug("Removing and de-registering file: %s", tar_file)
                 os.remove(tar_file)
-                self._generated_files.deregister_file(src_type, tar_file)
+                removed_files.append(tar_file)
+
+        self._generated_files.deregister_files(src_type, removed_files)
 
     def write_patch_file(self, patch_file):
         target_file = os.path.join(self.current_ctx_dir, os.path.basename(patch_file))
         patch_file = os.path.expanduser(patch_file)
         shutil.copyfile(patch_file, target_file)
         self._generated_files.register_files(OutputFileType.PATCH_FILE, [target_file])
+
+    def remove_files(self, out_type: 'OutputFileType'):
+        LOG.info("Removing unnecessary '%s' files...", out_type.value)
+        files = self._generated_files.get_all_for_context_except_last_tc(out_type, self.tc_no)
+
+        parent_dirs = []
+        for file in files:
+            if os.path.isfile(file):
+                LOG.debug("Removing file: %s", file)
+                os.remove(file)
+                parent_dirs.append(Path(file).parent.absolute())
+
+        # Remove residual empty parent directories
+        for parent in parent_dirs:
+            if not os.listdir(parent):
+                os.rmdir(parent)
 
 
 @dataclass
@@ -659,8 +679,7 @@ class Netty4TestConfig:
     only_run_testcases = []
     LIMIT_TESTCASES = False
     QUICK_MODE = False
-    # testcase_limit = 1 if QUICK_MODE or LIMIT_TESTCASES else TC_LIMIT_UNLIMITED
-    testcase_limit = 2 # TODO remove this limit
+    testcase_limit = 1 if QUICK_MODE or LIMIT_TESTCASES else TC_LIMIT_UNLIMITED
     enable_compilation = False if QUICK_MODE else True
     allow_verification_failure = True if QUICK_MODE else False
 
@@ -892,13 +911,22 @@ class GeneratedOutputFiles:
             raise HadesException("Output type is already used: {}".format(out_type))
         self._curr_files_dict[out_type] = files
 
-    def deregister_file(self, out_type: OutputFileType, file: str):
-        self._curr_files_dict[out_type].remove(file)
+    def deregister_files(self, out_type: OutputFileType, files: List[str]):
+        for file in files:
+            self._curr_files_dict[out_type].remove(file)
 
     def get(self, out_type):
         if out_type not in self._curr_files_dict:
             return []
         return self._curr_files_dict[out_type]
+
+    def get_all_for_context_except_last_tc(self, out_type, last_tc_no: int) -> List[str]:
+        result = []
+        ctx_files = self._files[self.ctx]
+        for tc, dic in ctx_files.items():
+            files = dic[out_type]
+            result.extend(files)
+        return list(filter(lambda f: f"tc{last_tc_no}_" not in f, result))
 
     def get_all_for_current_ctx(self):
         return list(itertools.chain.from_iterable(self._curr_files_dict.values()))
@@ -1397,6 +1425,8 @@ class Netty4RegressionTestSteps:
         self.output_file_writer.print_all_generated_files_for_current_ctx()
 
     def finalize_context(self):
+        # Only keep latest daemonlogs for last testcase
+        self.output_file_writer.remove_files(OutputFileType.EXTRACTED_YARN_DAEMON_LOG_FILES)
         self.output_file_writer.print_all_generated_files()
         self.test_results.print_report()
 
@@ -1698,5 +1728,4 @@ class Netty4RegressionTestDriver(HadesScriptBase):
                 self.steps.finalize_testcase_data_files()  # 12. Write compressed / decompressed testcase data output files 
                 self.steps.finalize_testcase()  # 13. Finalize testcase
             self.steps.finalize_context()
-            # TODO Only keep latest daemonlog (for last testcase)
         self.steps.compare_results()
