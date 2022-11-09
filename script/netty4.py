@@ -679,7 +679,8 @@ class Netty4TestConfig:
     only_run_testcases = []
     LIMIT_TESTCASES = False
     QUICK_MODE = False
-    testcase_limit = 1 if QUICK_MODE or LIMIT_TESTCASES else TC_LIMIT_UNLIMITED
+    # testcase_limit = 1 if QUICK_MODE or LIMIT_TESTCASES else TC_LIMIT_UNLIMITED
+    testcase_limit = 10
     enable_compilation = False if QUICK_MODE else True
     allow_verification_failure = True if QUICK_MODE else False
 
