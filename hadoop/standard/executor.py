@@ -397,7 +397,10 @@ class StandardUpstreamExecutor(HadoopOperationExecutor):
     def export_cert_from_keystore(self, *args: 'HadoopRoleInstance', dest_dir: str, dest_cert_ext: str, alias: str, keystore: str, store_pass: str):
         for i, role in enumerate(args):
             alias_arg = self._determine_alias_arg(alias, role)
-            dest_cert_filename = f"{self._auto_generate_server_name(role)}.{dest_cert_ext}"
+            server_name = self._auto_generate_server_name(role)
+
+            logger.debug("Generated server name '%s' for role: %s", server_name, role.host.address)
+            dest_cert_filename = f"{server_name}.{dest_cert_ext}"
 
             cmd_makedir = f"mkdir -p {dest_dir};rm -f {dest_dir}/*"
             cert_file = f"{dest_dir}/{dest_cert_filename}"
@@ -409,7 +412,7 @@ class StandardUpstreamExecutor(HadoopOperationExecutor):
             cmd_obj.run()
             StandardUpstreamExecutor._log_all(cmd_obj)
 
-            self.modify_file_permissions(*args, file=cert_file, owner_group="systest:systest", permission=755)
+            self.modify_file_permissions(role, file=cert_file, owner_group="systest:systest", permission=755)
 
     def scp_certs_from_other_hosts(self, *args: 'HadoopRoleInstance', src_dir: str, dest_dir: str, cert_ext: str, run_as_user: str = None):
         all_roles = set(args)
