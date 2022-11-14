@@ -683,7 +683,7 @@ class Netty4TestContext:
 @dataclass
 class Netty4TestConfig:
     # only_run_testcases = ["shuffle_ssl_enabled"]
-    only_run_testcases = ["shuffle_ssl_enabled"]
+    only_run_testcases = []
     LIMIT_TESTCASES = False
     QUICK_MODE = False
     testcase_limit = 1 if QUICK_MODE or LIMIT_TESTCASES else TC_LIMIT_UNLIMITED
