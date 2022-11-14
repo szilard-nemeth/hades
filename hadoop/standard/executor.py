@@ -402,7 +402,7 @@ class StandardUpstreamExecutor(HadoopOperationExecutor):
             logger.debug("Generated server name '%s' for role: %s", server_name, role.host.address)
             dest_cert_filename = f"{server_name}.{dest_cert_ext}"
 
-            cmd_makedir = f"mkdir -p {dest_dir};rm -f {dest_dir}/*"
+            cmd_makedir = f"mkdir -p {dest_dir};rm -f {dest_dir}/* && chown -R systest:systest {dest_dir}"
             cert_file = f"{dest_dir}/{dest_cert_filename}"
             cmd_exportcert = f"keytool -v -exportcert -file {cert_file} {alias_arg} -keystore {keystore} -storepass {store_pass} -rfc"
             cmd_verify = f"ls -la {dest_dir}"
