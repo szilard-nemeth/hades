@@ -420,7 +420,7 @@ cd Python-3.9*/
 sudo make altinstall
 ```
 
-### 2. Make sure you have python and pip installed
+### 2. Make sure you have Python and pip installed
 ```
 ls -la /usr/local/bin/python3.9
 python3.9 --version
@@ -449,7 +449,7 @@ git clone https://github.com/szilard-nemeth/hades.git
 
 ### 7. Checkout branch (if required) 
 ```
-git checkout netty4-finish
+git checkout <branch_name>
 ```
 
 ### 8. Install dependencies of Hades
@@ -510,6 +510,12 @@ jq -c '.hadoopJarPath = $hadoopJarPath' --arg hadoopJarPath '/home/systest/hadoo
 sudo yum install tmux -y
 tmux
 ```
+
+If you are using Kitty and having issues like: 
+```
+open terminal failed: missing or unsuitable terminal: xterm-kitty
+```
+please refer to [this link](https://sw.kovidgoyal.net/kitty/faq/#i-get-errors-about-the-terminal-being-unknown-or-opening-the-terminal-failing-when-sshing-into-a-different-computer)
 
 ### 18. Start pipenv shell again
 ```
