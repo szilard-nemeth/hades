@@ -400,13 +400,16 @@ class StandardUpstreamExecutor(HadoopOperationExecutor):
             dest_cert_filename = f"{self._auto_generate_server_name(role)}.{dest_cert_ext}"
 
             cmd_makedir = f"mkdir -p {dest_dir};rm -f {dest_dir}/*"
-            cmd_exportcert = f"keytool -v -exportcert -file {dest_dir}/{dest_cert_filename} {alias_arg} -keystore {keystore} -storepass {store_pass} -rfc"
+            cert_file = f"{dest_dir}/{dest_cert_filename}"
+            cmd_exportcert = f"keytool -v -exportcert -file {cert_file} {alias_arg} -keystore {keystore} -storepass {store_pass} -rfc"
             cmd_verify = f"ls -la {dest_dir}"
 
             cmd = f"{cmd_makedir} && {cmd_exportcert} && {cmd_verify}"
             cmd_obj = role.host.create_cmd(cmd)
             cmd_obj.run()
             StandardUpstreamExecutor._log_all(cmd_obj)
+
+            self.modify_file_permissions(*args, file=cert_file, owner_group="systest:systest", permission=755)
 
     def scp_certs_from_other_hosts(self, *args: 'HadoopRoleInstance', src_dir: str, dest_dir: str, cert_ext: str, run_as_user: str = None):
         all_roles = set(args)
