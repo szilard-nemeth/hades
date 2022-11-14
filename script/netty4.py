@@ -576,20 +576,27 @@ class OutputFileWriter:
         self._generated_files.register_files(OutputFileType.PATCH_FILE, [target_file])
 
     def remove_files(self, out_type: 'OutputFileType'):
-        LOG.info("Removing unnecessary '%s' files...", out_type.value)
+        # TODO this is still buggy --> DEBUG !!!
+        LOG.info("Removing unnecessary files for type: %s", out_type.value)
         files = self._generated_files.get_all_for_context_except_last_tc(out_type, self.tc_no)
 
+        LOG.debug("Found files to remove (type: %s): %s", out_type.value, files)
         parent_dirs = []
         for file in files:
             if os.path.isfile(file):
                 LOG.debug("Removing file: %s", file)
                 os.remove(file)
-                parent_dirs.append(Path(file).parent.absolute())
+                parent_dir = Path(file).parent.absolute
+                parent_dirs.append(parent_dir())
+                LOG.debug("Found parent dir to remove (type: %s): %s", out_type.value, parent_dir)
 
         # Remove residual empty parent directories
         for parent in parent_dirs:
             if not os.listdir(parent):
+                LOG.debug("Removing empty residual parent dir: %s", parent)
                 os.rmdir(parent)
+            else:
+                LOG.warning("Cannot remove parent dir as it is not empty: %s", parent)
 
 
 @dataclass
