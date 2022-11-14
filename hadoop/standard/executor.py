@@ -399,7 +399,7 @@ class StandardUpstreamExecutor(HadoopOperationExecutor):
             alias_arg = self._determine_alias_arg(alias, role)
             dest_cert_filename = f"{self._auto_generate_server_name(role)}.{dest_cert_ext}"
 
-            cmd_makedir = f"mkdir -p {dest_dir} && rm {dest_dir}/*"
+            cmd_makedir = f"mkdir -p {dest_dir};rm -f {dest_dir}/*"
             cmd_exportcert = f"keytool -v -exportcert -file {dest_dir}/{dest_cert_filename} {alias_arg} -keystore {keystore} -storepass {store_pass} -rfc"
             cmd_verify = f"ls -la {dest_dir}"
 
