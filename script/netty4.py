@@ -686,9 +686,10 @@ class Netty4TestConfig:
     only_run_testcases = []
     LIMIT_TESTCASES = False
     QUICK_MODE = False
-    # testcase_limit = 1 if QUICK_MODE or LIMIT_TESTCASES else TC_LIMIT_UNLIMITED
-    testcase_limit = 10
-    enable_compilation = False if QUICK_MODE else True
+    testcase_limit = 1 if QUICK_MODE or LIMIT_TESTCASES else TC_LIMIT_UNLIMITED
+    # testcase_limit = 10
+    # enable_compilation = False if QUICK_MODE else True
+    enable_compilation = False
     allow_verification_failure = True if QUICK_MODE else False
 
     mr_app_debug = False
@@ -703,14 +704,14 @@ class Netty4TestConfig:
     loadgen_no_mappers = 4
     loadgen_no_reducers = 3
     loadgen_timeout = 1000
-    run_without_patch = False
-    run_with_patch = True
+    # run_without_patch = False
+    # run_with_patch = True
     enable_ssl_debugging = False
     generate_empty_ssl_configs = False
     ssl_setup_mode = SSLSetupMode.BETWEEN_EACH_TESTCASE
     # TODO Implement switch that simulates an intentional job failure for given testcase names e.g. 'shuffle_ssl_enabled'
-    patch_file_path = str(Path.home()) + os.sep + "netty4patch.patch"
-    netty_log_message = "*** HADOOP-15327: netty upgrade"
+    # patch_file_path = str(Path.home()) + os.sep + "netty4patch.patch"
+    # netty_log_message = "*** HADOOP-15327: netty upgrade"
 
     force_compile = False
     sleep_after_service_restart = 15
@@ -744,26 +745,24 @@ class Netty4TestConfig:
         self.default_apps = [MapReduceAppType.SLEEP, MapReduceAppType.LOADGEN]
 
         self.contexts = []
-        if self.run_without_patch:
-            self.contexts.append(Netty4TestContext("without netty patch on trunk",
-                                                   DEFAULT_BRANCH,
-                                                   log_verifications=[
-                                                       LogVerification(HadoopRoleType.NM, self.netty_log_message,
-                                                                       inverted_mode=True)],
-                                                   compile=self.enable_compilation or self.force_compile,
-                                                   allow_verification_failure=self.allow_verification_failure))
-        if self.run_with_patch:
-            if not os.path.exists(self.patch_file_path):
-                raise ValueError("Patch file cannot be found in: {}".format(self.patch_file_path))
-            self.contexts.append(Netty4TestContext("with netty patch based on trunk",
-                                                   DEFAULT_BRANCH,
-                                                   patch_file=self.patch_file_path,
-                                                   log_verifications=[
-                                                       LogVerification(HadoopRoleType.NM, self.netty_log_message,
-                                                                       inverted_mode=False)],
-                                                   compile=self.enable_compilation or self.force_compile,
-                                                   allow_verification_failure=self.allow_verification_failure
-                                                   ))
+        self.contexts.append(Netty4TestContext("with netty patch based on CDH-7.1.8.x",
+                                               "CDH-7.1.8.x",
+                                               patch_file="",
+                                               log_verifications=[],
+                                               compile=False,
+                                               allow_verification_failure=self.allow_verification_failure))
+        # if self.run_with_patch:
+        #     if not os.path.exists(self.patch_file_path):
+        #         raise ValueError("Patch file cannot be found in: {}".format(self.patch_file_path))
+        #     self.contexts.append(Netty4TestContext("with netty patch based on trunk",
+        #                                            DEFAULT_BRANCH,
+        #                                            patch_file=self.patch_file_path,
+        #                                            log_verifications=[
+        #                                                LogVerification(HadoopRoleType.NM, self.netty_log_message,
+        #                                                                inverted_mode=False)],
+        #                                            compile=self.enable_compilation or self.force_compile,
+        #                                            allow_verification_failure=self.allow_verification_failure
+        #                                            ))
 
         self.testcases = [
             *Netty4TestcasesBuilder("shuffle_max_connections")
@@ -1181,9 +1180,9 @@ class Netty4RegressionTestSteps:
     def setup_branch_and_patch(self):
         # Checkout branch, apply patch if required
         hadoop_dir = HadoopDir(self.handler.ctx.config.hadoop_path)
-        hadoop_dir.switch_branch_to(self.context.base_branch)
 
         if self.context.patch_file:
+            hadoop_dir.switch_branch_to(self.context.base_branch)
             hadoop_dir.apply_patch(self.context.patch_file, force_reset=True)
             return True
         return False
