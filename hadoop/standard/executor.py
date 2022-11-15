@@ -8,6 +8,7 @@ from pythoncommons.file_utils import FileUtils as CommonFileUtils
 
 from core.cmd import RunnableCommand, DownloadCommand
 from core.config import ClusterConfig, ClusterRoleConfig, ClusterContextConfig
+from core.constants import DEFAULT_OWNER_GROUP, DEFAULT_USER
 from core.error import CommandExecutionException, MultiCommandExecutionException, HadesException
 from hadoop.app.example import ApplicationCommand, MapReduceApp, DistributedShellApp
 from hadoop.cluster import HadoopLogLevel
@@ -402,7 +403,7 @@ class StandardUpstreamExecutor(HadoopOperationExecutor):
             logger.debug("Generated server name '%s' for role: %s", server_name, role.host.address)
             dest_cert_filename = f"{server_name}.{dest_cert_ext}"
 
-            cmd_makedir = f"mkdir -p {dest_dir};rm -f {dest_dir}/* && chown -R systest:systest {dest_dir}"
+            cmd_makedir = f"mkdir -p {dest_dir};rm -f {dest_dir}/* && chown -R {DEFAULT_OWNER_GROUP} {dest_dir}"
             cert_file = f"{dest_dir}/{dest_cert_filename}"
             cmd_exportcert = f"keytool -v -exportcert -file {cert_file} {alias_arg} -keystore {keystore} -storepass {store_pass} -rfc"
             cmd_verify = f"ls -la {dest_dir}"
@@ -412,7 +413,7 @@ class StandardUpstreamExecutor(HadoopOperationExecutor):
             cmd_obj.run()
             StandardUpstreamExecutor._log_all(cmd_obj)
 
-            self.modify_file_permissions(role, file=cert_file, owner_group="systest:systest", permission=755)
+            self.modify_file_permissions(role, file=cert_file, owner_group=DEFAULT_OWNER_GROUP, permission=755)
 
     def scp_certs_from_other_hosts(self, *args: 'HadoopRoleInstance', src_dir: str, dest_dir: str, cert_ext: str, run_as_user: str = None):
         all_roles = set(args)
@@ -420,14 +421,13 @@ class StandardUpstreamExecutor(HadoopOperationExecutor):
             other_roles = set(all_roles)
             other_roles.remove(role)
             for other_role in other_roles:
-                # TODO Harcoded username 'systest' -> is this a problem?
                 hostname = other_role.host.address
                 cert_filename = f"{self._auto_generate_server_name(other_role)}.{cert_ext}"
                 src_filepath = f"{src_dir}/{cert_filename}"
                 cmd_scp = ""
                 if run_as_user:
                     cmd_scp += f"sudo -u {run_as_user} "
-                cmd_scp += f"scp -o StrictHostKeyChecking=no systest@{hostname}:{src_filepath} {dest_dir}"
+                cmd_scp += f"scp -o StrictHostKeyChecking=no {DEFAULT_USER}@{hostname}:{src_filepath} {dest_dir}"
                 cmd_verify = f"ls -la {dest_dir}"
 
                 cmd = f"{cmd_scp} && {cmd_verify}"

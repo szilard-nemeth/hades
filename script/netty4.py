@@ -13,6 +13,7 @@ from typing import Callable, List, Dict, Tuple, Any
 from tabulate import tabulate
 
 from core.cmd import RunnableCommand
+from core.constants import DEFAULT_USER_HOME, DEFAULT_USER
 from core.error import ScriptException, HadesCommandTimedOutException, HadesException, CommandExecutionException
 from core.handler import MainCommandHandler
 from core.util import FileUtils, CompressedFileUtils, PrintUtils, StringUtils
@@ -83,7 +84,7 @@ class ConfigWithDefault(Enum):
 
 
 STORE_TYPE_JKS = "jks"
-KEYSTORES_DIR = "/home/systest/keystores"
+KEYSTORES_DIR = f"{DEFAULT_USER_HOME}/keystores"
 COMMON_TRUSTSTORE_LOCATION = f"{KEYSTORES_DIR}/truststore.jks"
 COMMON_TRUSTSTORE_PASS = f"truststore_pass"
 
@@ -527,7 +528,7 @@ class OutputFileWriter:
         except HadesException as he:
             self.write_node_health_reports(self.cluster_handler.get_state_and_health_report())
             raise he
-        # TODO Node health report contains only 1 line
+        # TODO Node health report contains only 1 line --> debug this
         self.write_node_health_reports(self.cluster_handler.get_state_and_health_report())
 
     def save_yarn_daemon_logs_callback(self, files):
@@ -724,8 +725,8 @@ class Netty4TestConfig:
                                    timeout=self.loadgen_timeout,
                                    debug=self.mr_app_debug)
 
-        sort_input_dir = "/user/systest/sortInputDir"
-        sort_output_dir = "/user/systest/sortOutputDir"
+        sort_input_dir = f"/user/{DEFAULT_USER}/sortInputDir"
+        sort_output_dir = f"/user/{DEFAULT_USER}/sortOutputDir"
         random_writer_job = MapReduceApp(MapReduceAppType.RANDOM_WRITER, cmd=f"randomwriter {sort_input_dir}", debug=self.mr_app_debug)
         mapred_sort_job = MapReduceApp(MapReduceAppType.TEST_MAPRED_SORT,
                                        cmd=f"testmapredsort "
@@ -1365,7 +1366,7 @@ class Netty4RegressionTestSteps:
 
     def run_app_and_collect_logs_to_file(self, app: MapReduceApp):
         app_log_lines = []
-        with self.overwrite_config_func(cmd_prefix="sudo -u systest"):
+        with self.overwrite_config_func(cmd_prefix=f"sudo -u {DEFAULT_USER}"):
             app_command, result_type = self.cluster_handler.run_app(app, app_log_lines, selector=NODEMANAGER_SELECTOR)
 
         self.output_file_writer.write_yarn_app_logs(app.name, app_command, app_log_lines)
