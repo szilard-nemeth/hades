@@ -154,13 +154,14 @@ class CompressedFileUtils:
         file.close()
 
     @staticmethod
-    def list_targz_file(file_path: str):
+    def list_targz_file(file_path: str, parent_dir: str):
         FileUtils.ensure_file_exists(file_path)
         file = tarfile.open(file_path)
         members = file.getmembers()
         file.close()
+        if parent_dir:
+            return [os.path.join(parent_dir, m.name) for m in members]
         return [m.name for m in members]
-
 
 
 class LoggingUtils:

@@ -386,9 +386,9 @@ class OutputFileWriter:
     def update_with_context_and_testcase(self, workdir, context, testcase):
         self.workdir = workdir
         self.context = context
+        self.tc = testcase
         # TODO tc_no should be property of testcase?
         self.tc_no = self.tc_no + 1
-        self.tc = testcase
         self._generated_files.update_with_ctx_and_tc(self.context, self.tc)
         LOG.info("Using workdir: %s", self.workdir)
 
@@ -560,7 +560,7 @@ class OutputFileWriter:
             LOG.debug("[%s] Extracting file '%s' to %s", self.context, tar_file, target_dir)
             CompressedFileUtils.extract_targz_file(tar_file, target_dir)
             self._generated_files.register_files(dst_type,
-                                                 CompressedFileUtils.list_targz_file(tar_file),
+                                                 CompressedFileUtils.list_targz_file(tar_file, parent_dir=target_dir),
                                                  allow_multiple=True)
             if remove_src_file and os.path.isfile(tar_file):
                 LOG.debug("Removing and de-registering file: %s", tar_file)
@@ -682,6 +682,7 @@ class Netty4TestContext:
 
 @dataclass
 class Netty4TestConfig:
+    # TODO Externalize this config to a mandatory config file as it's already complex enough
     # only_run_testcases = ["shuffle_ssl_enabled"]
     only_run_testcases = []
     LIMIT_TESTCASES = False
@@ -909,14 +910,20 @@ class GeneratedOutputFiles:
         self.ctx = context
         self.tc = tc
 
-        self._files[self.ctx] = {}
-        self._files[self.ctx][self.tc] = {}
+        if context not in self._files:
+            self._files[self.ctx] = {}
+        if tc not in self._files[self.ctx]:
+            self._files[self.ctx][self.tc] = {}
+
         self._curr_files_dict = self._files[self.ctx][self.tc]
 
     def register_files(self, out_type: OutputFileType, files: List[str], allow_multiple: bool = False):
         if out_type in self._curr_files_dict and not allow_multiple:
             raise HadesException("Output type is already used: {}".format(out_type))
-        self._curr_files_dict[out_type] = files
+
+        if out_type not in self._curr_files_dict:
+            self._curr_files_dict[out_type] = []
+        self._curr_files_dict[out_type].extend(files)
 
     def deregister_files(self, out_type: OutputFileType, files: List[str]):
         for file in files:
