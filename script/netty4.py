@@ -358,7 +358,6 @@ class OutputFileWriter:
     def __init__(self, cluster_handler):
         self.cluster_handler = cluster_handler
         self._generated_files = GeneratedOutputFiles()
-        self.tc_no = 0
         self.workdir = None
         self.context = None
         self.tc = None
@@ -383,12 +382,11 @@ class OutputFileWriter:
             (OutputFileType.TC_CONFIG_LOG4J_PROPERTIES, HadoopConfigFile.LOG4J_PROPERTIES),
         ]
 
-    def update_with_context_and_testcase(self, workdir, context, testcase):
+    def update_with_context_and_testcase(self, workdir, context, testcase, counter):
         self.workdir = workdir
         self.context = context
         self.tc = testcase
-        # TODO tc_no should be property of testcase?
-        self.tc_no = self.tc_no + 1
+        self.tc.tc_no = counter
         self._generated_files.update_with_ctx_and_tc(self.context, self.tc)
         LOG.info("Using workdir: %s", self.workdir)
 
@@ -396,14 +394,14 @@ class OutputFileWriter:
         if not os.path.exists(self.current_ctx_dir):
             os.mkdir(self.current_ctx_dir)
 
-        self.current_tc_dir = os.path.join(self.workdir, self.context.get_dirname, f"tc{self.tc_no}_{self.tc.name}")
+        self.current_tc_dir = os.path.join(self.workdir, self.context.get_dirname, f"tc{self.tc.tc_no}_{self.tc.name}")
         if not os.path.exists(self.current_tc_dir):
             os.mkdir(self.current_tc_dir)
         LOG.debug("Current context dir is: %s", self.current_ctx_dir)
         LOG.debug("Current testcase dir is: %s", self.current_tc_dir)
 
     def _get_testcase_targz_filename(self):
-        tc_no = f"0{str(self.tc_no)}" if self.tc_no < 9 else str(self.tc_no)
+        tc_no = f"0{str(self.tc.tc_no)}" if self.tc.tc_no < 9 else str(self.tc.tc_no)
         tc_targz_filename = os.path.join(self.current_ctx_dir, f"testcase_{tc_no}_{self.tc.name}.tar.gz")
         return tc_targz_filename
 
@@ -576,9 +574,8 @@ class OutputFileWriter:
         self._generated_files.register_files(OutputFileType.PATCH_FILE, [target_file])
 
     def remove_files(self, out_type: 'OutputFileType'):
-        # TODO this is still buggy --> DEBUG !!!
         LOG.info("Removing unnecessary files for type: %s", out_type.value)
-        files = self._generated_files.get_all_for_context_except_last_tc(out_type, self.tc_no)
+        files = self._generated_files.get_all_for_context_except_last_tc(out_type, self.tc.tc_no)
 
         LOG.debug("Found files to remove (type: %s): %s", out_type.value, files)
         parent_dirs = []
@@ -1272,15 +1269,15 @@ class Netty4RegressionTestSteps:
                            config_file=HadoopConfigFile.YARN_ENV_SH,
                            selector=YARN_SELECTOR)
 
-    def init_testcase(self, tc):
+    def init_testcase(self, tc, counter: int):
         if self._should_halt():
             self.execution_state = ExecutionState.HALTED
             return self.execution_state
 
         self.tc = tc
         self.test_results.update_with_context_and_testcase(self.context, self.tc)
-        self.output_file_writer.update_with_context_and_testcase(self.session_dir, self.context, self.tc)
-        LOG.info("[%s] [%d / %d] Running testcase: %s", self.context, self.output_file_writer.tc_no,
+        self.output_file_writer.update_with_context_and_testcase(self.session_dir, self.context, self.tc, counter)
+        LOG.info("[%s] [%d / %d] Running testcase: %s", self.context, self.tc.tc_no,
                  self.no_of_testcases,
                  self.tc)
         PrintUtils.print_banner_figlet(f"STARTING TESTCASE: {self.tc.name}")
@@ -1525,7 +1522,6 @@ class ClusterConfigUpdater:
             if isinstance(v, int):
                 v = str(v)
             default_config.extend_with_args({k: v})
-        # TODO ???
         self.cluster_handler.update_config(selector, default_config, no_backup=True, workdir=self.workdir,
                                            allow_empty=allow_empty)
 
@@ -1696,6 +1692,7 @@ class Netty4RegressionTestDriver(HadesScriptBase):
         super().__init__(cluster, workdir, session_dir)
         self.config = Netty4TestConfig()
         self.output_file_writer = None
+        self._tc_counter = 0
 
     def run(self, handler: MainCommandHandler):
         testcases = self.config.testcases
@@ -1722,7 +1719,8 @@ class Netty4RegressionTestDriver(HadesScriptBase):
             self.steps.load_default_yarn_site_configs()
 
             for idx, tc in enumerate(testcases):
-                exec_state = self.steps.init_testcase(tc)  # 1. Update context, TestResults
+                self._tc_counter += 1
+                exec_state = self.steps.init_testcase(tc, self._tc_counter)  # 1. Update context, TestResults
                 if exec_state == ExecutionState.HALTED:
                     LOG.warning("Stopping test driver execution as execution state is HALTED!")
                     break
