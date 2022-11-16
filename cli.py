@@ -221,6 +221,7 @@ def distribute(ctx, selector: str, source: Tuple[str], dest: Tuple[str], module:
     handler: MainCommandHandler = ctx.obj['handler']
     files = {k: v for k, v in zip(source, dest)}
     module = [HadoopModule[m].value for m in module]
+    # TODO type might be wrong here (HadoopModule vs. str)
     handler.distribute(selector, files, module)
 
 

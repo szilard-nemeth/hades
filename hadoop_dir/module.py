@@ -198,11 +198,11 @@ class HadoopDir:
         git_clean_cmd = RunnableCommand(cmd, work_dir=self._hadoop_dir)
         git_clean_cmd.run()
 
-    def apply_patch(self, patch_path, expected_branch="origin/trunk", force_reset=False):
+    def apply_patch(self, patch_path, base_branch, force_reset=False):
         if force_reset:
-            self.reset(expected_branch)
+            self.reset(base_branch)
         else:
-            self.switch_branch_to(expected_branch)
+            self.switch_branch_to(base_branch)
         logger.info("Applying patch file %s", patch_path)
         cmd = self.APPLY_PATCH_CMD_TEMPLATE.format(patch_path)
         patch_command = RunnableCommand(cmd, work_dir=self._hadoop_dir)

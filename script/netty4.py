@@ -6,7 +6,7 @@ import pickle
 import re
 import shutil
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 from pprint import pformat
@@ -33,7 +33,6 @@ INVALID_CONFIG_VALUE = "INVALID"
 PACKAGE_SECURITY_SSL = "org.apache.hadoop.security.ssl"
 PACKAGE_SHUFFLEHANDLER = "org.apache.hadoop.mapred.ShuffleHandler"
 
-DEFAULT_BRANCH = "origin/trunk"
 LOG = logging.getLogger(__name__)
 
 CONF_DIR_TC = "testcase_config"
@@ -338,17 +337,18 @@ class Netty4Testcase:
         return hash(self.name)
 
 
-class TestcaseResultType(Enum):
-    FAILED = "error"
-    TIMEOUT = "timed out"
-    PASSED = "passed"
-
-
+@dataclass_json(letter_case=LetterCase.CAMEL)
 @dataclass
 class LogVerification:
     role_type: HadoopRoleType
     text: str
     inverted_mode: bool = False
+
+
+class TestcaseResultType(Enum):
+    FAILED = "error"
+    TIMEOUT = "timed out"
+    PASSED = "passed"
 
 
 @dataclass
@@ -658,16 +658,30 @@ class LogsByRoles:
             raise HadesException(f"Found empty lines for the following roles: {empty_lines_per_role}")
 
 
+@dataclass_json(letter_case=LetterCase.CAMEL)
 @dataclass
 class Netty4TestContext:
     name: str
-    base_branch: str = DEFAULT_BRANCH
-    patch_file: str = None
-    log_verifications: List[LogVerification] = field(default_factory=list)
-    invert_nm_log_msg_verification: str = None
-    compile: bool = True
-    allow_verification_failure: bool = False
+    repository_path: str
+    remote: str
+    base_branch: str
+    apply_patch_file: str
+    enable_compilation: bool
+    allow_verification_failure: bool
+    log_verifications: List[LogVerification] = None
+
+    # TODO This property does not belong here, remove later
     ssl_setup_completed: bool = False
+
+    def __post_init__(self):
+        # TODO if apply_patch_file, turn on enable_compilation and log message
+        # TODO warn if there's no log verification definition
+        # TODO raise exc if patch file not found
+        # if not os.path.exists(self.patch_file_path):
+        #     raise ValueError("Patch file cannot be found in: {}".format(self.patch_file_path))
+
+        # TODO raise exc if compilation is not enabled but patch file is defined
+        pass
 
     def __str__(self):
         return f"Context: {self.name}"
@@ -686,15 +700,6 @@ class Netty4TestContext:
 class Netty4TestConfig:
     # global configs, controls other configs
     quick_mode: bool
-
-    # context-related configs
-    enable_compilation: bool # TODO this can be eliminated with context
-    force_compilation: bool # TODO this can be eliminated with context
-    allow_verification_failure: bool # TODO this can be eliminated with context
-    run_without_patch: bool  # TODO this can be eliminated with context
-    run_with_patch: bool  # TODO this can be eliminated with context
-    patch_file_path: str  # TODO this can be eliminated with context
-    netty_log_message: str  # TODO this can be eliminated with context
 
     # debug configs / flags
     mr_app_debug: bool
@@ -722,6 +727,8 @@ class Netty4TestConfig:
     generate_empty_ssl_configs: bool
     ssl_setup_mode: SSLSetupMode
 
+    contexts: List[Netty4TestContext] = dataclasses.field(default_factory=list)
+
     # testcase filter - must be here since the default factory of list
     only_run_testcases: List[str] = dataclasses.field(default_factory=list)
     # TODO Implement switch that simulates an intentional job failure for given testcase names e.g. 'shuffle_ssl_enabled'
@@ -743,9 +750,16 @@ class Netty4TestConfig:
         LOG.info("Current configuration: \n%s", pformat(field_values))
 
     def __post_init__(self):
+        if not self.contexts:
+            raise HadesException("No context is defined!")
+
+        # TODO these all should be logged as these are overrides
         self.testcase_limit = 1 if self.quick_mode or self.limit_testcases else TC_LIMIT_UNLIMITED
-        self.enable_compilation = False if self.quick_mode else True
-        self.allow_verification_failure = True if self.quick_mode else False
+
+        # TODO raise exc if compilation is not enabled but patch file is defined
+        enable_compilation = False if self.quick_mode else True
+        for context in self.contexts:
+            context.enable_compilation = enable_compilation
 
         sleep_job = MapReduceApp(MapReduceAppType.SLEEP, cmd='sleep -m 1 -r 1 -mt 10 -rt 10', timeout=self.timeout_for_apps, debug=self.mr_app_debug)
         pi_job = MapReduceApp(MapReduceAppType.PI, cmd='pi 1 1000', timeout=self.timeout_for_apps, debug=self.mr_app_debug)
@@ -773,29 +787,6 @@ class Netty4TestConfig:
             MapReduceAppType.LOADGEN: loadgen_job
         }
         self.default_apps = [MapReduceAppType.SLEEP, MapReduceAppType.LOADGEN]
-
-        self.contexts = []
-
-        if self.run_without_patch:
-            self.contexts.append(Netty4TestContext("without netty patch on trunk",
-                                                   DEFAULT_BRANCH,
-                                                   log_verifications=[
-                                                       LogVerification(HadoopRoleType.NM, self.netty_log_message,
-                                                                       inverted_mode=True)],
-                                                   compile=self.enable_compilation or self.force_compilation,
-                                                   allow_verification_failure=self.allow_verification_failure))
-        if self.run_with_patch:
-            if not os.path.exists(self.patch_file_path):
-                raise ValueError("Patch file cannot be found in: {}".format(self.patch_file_path))
-            self.contexts.append(Netty4TestContext("with netty patch based on trunk",
-                                                   DEFAULT_BRANCH,
-                                                   patch_file=self.patch_file_path,
-                                                   log_verifications=[
-                                                       LogVerification(HadoopRoleType.NM, self.netty_log_message,
-                                                                       inverted_mode=False)],
-                                                   compile=self.enable_compilation or self.force_compilation,
-                                                   allow_verification_failure=self.allow_verification_failure
-                                                   ))
 
         self.testcases = [
             *Netty4TestcasesBuilder("shuffle_max_connections")
@@ -1007,17 +998,17 @@ class GeneratedOutputFiles:
 class CompilationContext:
     branch: str
     commit_hash: str
-    patch_file: str
+    apply_patch_file: str
     changed_modules: Dict[str, str]
     timestamp: int = None
     patch_file_hash: str or None = None
 
     def __post_init__(self):
-        if not self.patch_file:
-            self.patch_file = "without_patch"
-            self.patch_file_hash = 999
+        if not self.apply_patch_file:
+            self.apply_patch_file = "without_patch"
+            self.patch_file_hash = "999"
         else:
-            self.patch_file_hash = FileUtils.get_hash_of_file(self.patch_file)
+            self.patch_file_hash = FileUtils.get_hash_of_file(self.apply_patch_file)
         self.timestamp = int(time.time())
 
 
@@ -1119,7 +1110,7 @@ class CompiledModuleCache:
 class Compiler:
     def __init__(self, workdir, context, handler, config):
         self.workdir = workdir
-        self.context = context
+        self.context: Netty4TestContext = context
         self.handler = handler
         self.config = config
         self._cache = CompiledModuleCache(self.workdir, self.handler.ctx.config.hadoop_path)
@@ -1128,16 +1119,18 @@ class Compiler:
         if self._use_cache:
             self._cache.load()
 
-    def compile(self, expect_changed_modules=False, force_compile_if_no_changed_modules=True):
-        LOG.info("Compile set to %s, force compile: %s", self.context.compile, self.config.force_compilation)
-        if self.context.compile:
-            hadoop_dir = HadoopDir(self.handler.ctx.config.hadoop_path)
+    def compile(self, repo_path: str, expect_changed_modules=False, force_compile_if_no_changed_modules=True):
+        comp_status = "enabled" if self.context.enable_compilation else "disabled"
+        LOG.info("Compile is %s", comp_status)
+        if self.context.enable_compilation:
+            hadoop_dir = HadoopDir(repo_path)
             compilation_required = True
             all_loaded = False
 
-            comp_context = CompilationContext(branch=hadoop_dir.get_current_branch(fallback="trunk"),
+            # TODO Maybe CompilationContext is not required anymore, just adds unnecessary complexity
+            comp_context = CompilationContext(branch=hadoop_dir.get_current_branch(fallback=self.context.base_branch),
                                               commit_hash=hadoop_dir.get_current_commit_hash(),
-                                              patch_file=self.context.patch_file,
+                                              apply_patch_file=self.context.apply_patch_file,
                                               changed_modules=hadoop_dir.get_changed_module_paths())
 
             if not self.config.force_compilation and self._use_cache:
@@ -1160,7 +1153,8 @@ class Compiler:
                                      deploy=True,
                                      modules=None,
                                      no_copy=True,
-                                     single=None)
+                                     single=None,
+                                     repo_path=self.context.repository_path)
                 if self._use_cache:
                     self._cache.save_modules(comp_context)
             elif expect_changed_modules and all_loaded:
@@ -1220,11 +1214,12 @@ class Netty4RegressionTestSteps:
 
     def setup_branch_and_patch(self):
         # Checkout branch, apply patch if required
-        hadoop_dir = HadoopDir(self.handler.ctx.config.hadoop_path)
+        hadoop_dir = HadoopDir(self.context.repository_path)
 
-        if self.context.patch_file:
-            hadoop_dir.switch_branch_to(self.context.base_branch)
-            hadoop_dir.apply_patch(self.context.patch_file, force_reset=True)
+        if self.context.apply_patch_file:
+            branch_spec = f"{self.context.remote}/{self.context.base_branch}"
+            hadoop_dir.switch_branch_to(branch_spec)
+            hadoop_dir.apply_patch(self.context.apply_patch_file, base_branch=branch_spec, force_reset=True)
             return True
         return False
 
@@ -1319,8 +1314,8 @@ class Netty4RegressionTestSteps:
                  self.tc)
         PrintUtils.print_banner_figlet(f"STARTING TESTCASE: {self.tc.name}")
 
-        if self.context.patch_file:
-            self.output_file_writer.write_patch_file(self.context.patch_file)
+        if self.context.apply_patch_file:
+            self.output_file_writer.write_patch_file(self.context.apply_patch_file)
         return ExecutionState.RUNNING
 
     def load_default_configs(self):
@@ -1440,8 +1435,7 @@ class Netty4RegressionTestSteps:
                     self.nm_restart_logs.search_in_logs(verification)
             except HadesException as e:
                 if self.context.allow_verification_failure:
-                    LOG.exception("Verification failed: %s, but allow verification failure is set to True!",
-                                  verification)
+                    LOG.exception("Verification failed: %s, but allow verification failure is enabled!", verification)
                 else:
                     raise e
         else:
@@ -1490,8 +1484,8 @@ class Netty4RegressionTestSteps:
             return
         self.test_results.compare(self.config.contexts[0])
 
-    def compile(self, expect_changed_modules=False):
-        self.compiler.compile(expect_changed_modules=expect_changed_modules)
+    def compile(self, repo_path, expect_changed_modules=False):
+        self.compiler.compile(repo_path, expect_changed_modules=expect_changed_modules)
 
     def verify_nm_configs(self, dic: Dict[HadoopConfigFile, List[Tuple[str, str]]]):
         self.cluster_handler.verify_nm_configs(dic)
@@ -1728,7 +1722,7 @@ class Netty4RegressionTestDriver(HadesScriptBase):
     def __init__(self, cluster: HadoopCluster, workdir: str, session_dir: str):
         super().__init__(cluster, workdir, session_dir)
 
-        config_path = os.path.join(workdir, "netty4.config")
+        config_path = os.path.join(workdir, "netty4-config.json")
         if not os.path.exists(config_path):
             raise HadesException("The netty4.py script requires the config file to be present at: {}, but config is not found!".format(config_path))
         self.config = Netty4TestConfig.from_file(config_path)
@@ -1757,8 +1751,8 @@ class Netty4RegressionTestDriver(HadesScriptBase):
                 LOG.warning("Stopping test driver execution as execution state is HALTED!")
                 break
             self.steps.setup_branch_and_patch()
-            expected_changed_modules = True if context.patch_file else False
-            self.steps.compile(expect_changed_modules=expected_changed_modules)
+            expected_changed_modules = True if context.apply_patch_file else False
+            self.steps.compile(context.repository_path, expect_changed_modules=expected_changed_modules)
             self.steps.load_default_yarn_site_configs()
 
             for idx, tc in enumerate(testcases):

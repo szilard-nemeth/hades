@@ -81,12 +81,14 @@ class MainCommandHandler:
 
         logger.info("Created cluster file %s", self.ctx.cluster_config_path)
 
-    def compile(self, all=False, changed=False, deploy=False, modules=None, no_copy=False, single=None):
+    def compile(self, all=False, changed=False, deploy=False, modules=None, no_copy=False, single=None, repo_path: str = None):
         if not self.ctx.config.hadoop_jar_path:
             raise ConfigSetupException("hadoopJarPath", "not set")
 
+        hadoop_path = repo_path if repo_path else self.ctx.config.hadoop_path
+
         mvn = MavenCompiler(self.ctx.config)
-        hadoop_modules = HadoopDir(self.ctx.config.hadoop_path)
+        hadoop_modules = HadoopDir(hadoop_path)
 
         if all:
             mvn.compile(modules=hadoop_modules, all=True)
@@ -111,11 +113,12 @@ class MainCommandHandler:
             hadoop_modules.copy_modules_to_dist(self.ctx.config.hadoop_jar_path)
 
         if deploy:
-            hadoop_modules = self.deploy()
+            hadoop_modules = self.deploy(repo_path=hadoop_path)
         return hadoop_modules.get_changed_module_paths()
 
-    def deploy(self):
-        hadoop_modules = HadoopDir(self.ctx.config.hadoop_path)
+    def deploy(self, repo_path: str = None):
+        hadoop_path = repo_path if repo_path else self.ctx.config.hadoop_path
+        hadoop_modules = HadoopDir(hadoop_path)
         hadoop_modules.extract_changed_modules()
         self._create_cluster().replace_module_jars("", hadoop_modules)
         return hadoop_modules
