@@ -1,3 +1,4 @@
+import dataclasses
 import itertools
 import logging
 import os.path
@@ -679,47 +680,56 @@ class Netty4TestContext:
         return f"ctx_{repl}"
 
 
-@dataclass
 @dataclass_json(letter_case=LetterCase.CAMEL)
+@dataclass
 class Netty4TestConfig:
-    # only_run_testcases = ["shuffle_ssl_enabled"]
-    only_run_testcases = []
-    LIMIT_TESTCASES = False
-    QUICK_MODE = False
-    testcase_limit = 1 if QUICK_MODE or LIMIT_TESTCASES else TC_LIMIT_UNLIMITED
-    enable_compilation = False if QUICK_MODE else True
-    allow_verification_failure = True if QUICK_MODE else False
+    only_run_testcases: List[str] = dataclasses.field(default_factory=list)
+    limit_testcases: bool = False
+    quick_mode: bool = False
+    testcase_limit: int = -1
+    enable_compilation: bool = None
+    allow_verification_failure: bool = None
 
-    mr_app_debug = False
+    mr_app_debug: bool = False
     timeout_for_apps = 120
-    compress_tc_result = False
-    decompress_app_container_logs = True
-    decompress_daemon_logs = True
-    shufflehandler_log_level = HadoopLogLevel.DEBUG
-    cache_built_maven_artifacts = True
-    halt_execution_on_failed_job = True
-    halt_execution_on_job_timeout = False
-    loadgen_no_mappers = 4
-    loadgen_no_reducers = 3
-    loadgen_timeout = 1000
-    run_without_patch = True
-    run_with_patch = True
-    enable_ssl_debugging = False
-    generate_empty_ssl_configs = False
-    ssl_setup_mode = SSLSetupMode.BETWEEN_EACH_TESTCASE
+    compress_tc_result: bool = False
+    decompress_app_container_logs: bool = True
+    decompress_daemon_logs: bool = True
+    shufflehandler_log_level: HadoopLogLevel = HadoopLogLevel.DEBUG # TODO Parse log level, and this is not exported at all
+    cache_built_maven_artifacts: bool = True
+    halt_execution_on_failed_job: bool = True
+    halt_execution_on_job_timeout: bool = False
+    loadgen_no_mappers: int = 4
+    loadgen_no_reducers: int = 3
+    loadgen_timeout: int = 1000
+    run_without_patch: bool = True
+    run_with_patch: bool = True
+    enable_ssl_debugging: bool = False
+    generate_empty_ssl_configs: bool = False
+    ssl_setup_mode: SSLSetupMode = SSLSetupMode.BETWEEN_EACH_TESTCASE # TODO Parse SSLSetupMode
     # TODO Implement switch that simulates an intentional job failure for given testcase names e.g. 'shuffle_ssl_enabled'
-    patch_file_path = str(Path.home()) + os.sep + "netty4patch.patch"
-    netty_log_message = "*** HADOOP-15327: netty upgrade"
+    patch_file_path: str = str(Path.home()) + os.sep + "netty4patch.patch"
+    netty_log_message: str = "*** HADOOP-15327: netty upgrade"
 
-    force_compile = False
-    sleep_after_service_restart = 15
+    force_compile: bool = False
+    sleep_after_service_restart: int = 15
 
     @classmethod
     def from_file(cls, path: str) -> 'Netty4TestConfig':
         with open(path, 'r') as f:
             return Netty4TestConfig.from_json(f.read())
 
+    def to_file(self, path):
+        with open(path, 'w') as f:
+            f.write(self.to_json(indent=4))
+
+        LOG.info("Exported config file {}".format(path))
+
     def __post_init__(self):
+        self.testcase_limit = 1 if self.quick_mode or self.limit_testcases else TC_LIMIT_UNLIMITED
+        self.enable_compilation = False if self.quick_mode else True
+        self.allow_verification_failure = True if self.quick_mode else False
+
         sleep_job = MapReduceApp(MapReduceAppType.SLEEP, cmd='sleep -m 1 -r 1 -mt 10 -rt 10', timeout=self.timeout_for_apps, debug=self.mr_app_debug)
         pi_job = MapReduceApp(MapReduceAppType.PI, cmd='pi 1 1000', timeout=self.timeout_for_apps, debug=self.mr_app_debug)
         loadgen_job = MapReduceApp(MapReduceAppType.LOADGEN,
@@ -1698,7 +1708,11 @@ class ClusterHandler:
 class Netty4RegressionTestDriver(HadesScriptBase):
     def __init__(self, cluster: HadoopCluster, workdir: str, session_dir: str):
         super().__init__(cluster, workdir, session_dir)
-        self.config = Netty4TestConfig()
+
+        config_path = os.path.join(workdir, "netty4.config")
+        if not os.path.exists(config_path):
+            raise HadesException("The netty4.py script requires the config file to be present at: {}, but config is not found!".format(config_path))
+        self.config = Netty4TestConfig.from_file(config_path)
         self.output_file_writer = None
         self._tc_counter = 0
 
