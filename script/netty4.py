@@ -684,32 +684,45 @@ class Netty4TestContext:
 @dataclass_json(letter_case=LetterCase.CAMEL)
 @dataclass
 class Netty4TestConfig:
-    limit_testcases: bool
+    # global configs, controls other configs
     quick_mode: bool
-    testcase_limit: int
-    enable_compilation: bool
-    force_compilation: bool
-    allow_verification_failure: bool
+
+    # context-related configs
+    enable_compilation: bool # TODO this can be eliminated with context
+    force_compilation: bool # TODO this can be eliminated with context
+    allow_verification_failure: bool # TODO this can be eliminated with context
+    run_without_patch: bool  # TODO this can be eliminated with context
+    run_with_patch: bool  # TODO this can be eliminated with context
+    patch_file_path: str  # TODO this can be eliminated with context
+    netty_log_message: str  # TODO this can be eliminated with context
+
+    # debug configs / flags
     mr_app_debug: bool
+    enable_ssl_debugging: bool
+
+    # execution configs
+    limit_testcases: bool
+    testcase_limit: int
     timeout_for_apps: int
+    halt_execution_on_failed_job: bool
+    halt_execution_on_job_timeout: bool
+    sleep_after_service_restart: int
+
+    # app-level configs
+    loadgen_no_mappers: int
+    loadgen_no_reducers: int
+    loadgen_timeout: int
+
+    # everything else
     compress_tc_result: bool
     decompress_app_container_logs: bool
     decompress_daemon_logs: bool
     cache_built_maven_artifacts: bool
-    halt_execution_on_failed_job: bool
-    halt_execution_on_job_timeout: bool
-    loadgen_no_mappers: int
-    loadgen_no_reducers: int
-    loadgen_timeout: int
-    run_without_patch: bool
-    run_with_patch: bool
-    enable_ssl_debugging: bool
-    generate_empty_ssl_configs: bool
-    patch_file_path: str
-    netty_log_message: str
-    sleep_after_service_restart: int
     shufflehandler_log_level: HadoopLogLevel
+    generate_empty_ssl_configs: bool
     ssl_setup_mode: SSLSetupMode
+
+    # testcase filter - must be here since the default factory of list
     only_run_testcases: List[str] = dataclasses.field(default_factory=list)
     # TODO Implement switch that simulates an intentional job failure for given testcase names e.g. 'shuffle_ssl_enabled'
 
