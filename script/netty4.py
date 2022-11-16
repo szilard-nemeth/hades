@@ -688,6 +688,7 @@ class Netty4TestConfig:
     quick_mode: bool
     testcase_limit: int
     enable_compilation: bool
+    force_compilation: bool
     allow_verification_failure: bool
     mr_app_debug: bool
     timeout_for_apps: int
@@ -706,7 +707,6 @@ class Netty4TestConfig:
     generate_empty_ssl_configs: bool
     patch_file_path: str
     netty_log_message: str
-    force_compile: bool
     sleep_after_service_restart: int
     shufflehandler_log_level: HadoopLogLevel
     ssl_setup_mode: SSLSetupMode
@@ -769,7 +769,7 @@ class Netty4TestConfig:
                                                    log_verifications=[
                                                        LogVerification(HadoopRoleType.NM, self.netty_log_message,
                                                                        inverted_mode=True)],
-                                                   compile=self.enable_compilation or self.force_compile,
+                                                   compile=self.enable_compilation or self.force_compilation,
                                                    allow_verification_failure=self.allow_verification_failure))
         if self.run_with_patch:
             if not os.path.exists(self.patch_file_path):
@@ -780,7 +780,7 @@ class Netty4TestConfig:
                                                    log_verifications=[
                                                        LogVerification(HadoopRoleType.NM, self.netty_log_message,
                                                                        inverted_mode=False)],
-                                                   compile=self.enable_compilation or self.force_compile,
+                                                   compile=self.enable_compilation or self.force_compilation,
                                                    allow_verification_failure=self.allow_verification_failure
                                                    ))
 
@@ -1116,7 +1116,7 @@ class Compiler:
             self._cache.load()
 
     def compile(self, expect_changed_modules=False, force_compile_if_no_changed_modules=True):
-        LOG.info("Compile set to %s, force compile: %s", self.context.compile, self.config.force_compile)
+        LOG.info("Compile set to %s, force compile: %s", self.context.compile, self.config.force_compilation)
         if self.context.compile:
             hadoop_dir = HadoopDir(self.handler.ctx.config.hadoop_path)
             compilation_required = True
@@ -1127,7 +1127,7 @@ class Compiler:
                                               patch_file=self.context.patch_file,
                                               changed_modules=hadoop_dir.get_changed_module_paths())
 
-            if not self.config.force_compile and self._use_cache:
+            if not self.config.force_compilation and self._use_cache:
                 hadoop_dir.extract_changed_modules(allow_empty=True)
                 if expect_changed_modules and not comp_context.changed_modules:
                     if not force_compile_if_no_changed_modules:
