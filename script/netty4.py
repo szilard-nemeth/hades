@@ -683,36 +683,34 @@ class Netty4TestContext:
 @dataclass_json(letter_case=LetterCase.CAMEL)
 @dataclass
 class Netty4TestConfig:
+    limit_testcases: bool
+    quick_mode: bool
+    testcase_limit: int
+    enable_compilation: bool
+    allow_verification_failure: bool
+    mr_app_debug: bool
+    timeout_for_apps: int
+    compress_tc_result: bool
+    decompress_app_container_logs: bool
+    decompress_daemon_logs: bool
+    cache_built_maven_artifacts: bool
+    halt_execution_on_failed_job: bool
+    halt_execution_on_job_timeout: bool
+    loadgen_no_mappers: int
+    loadgen_no_reducers: int
+    loadgen_timeout: int
+    run_without_patch: bool
+    run_with_patch: bool
+    enable_ssl_debugging: bool
+    generate_empty_ssl_configs: bool
+    patch_file_path: str
+    netty_log_message: str
+    force_compile: bool
+    sleep_after_service_restart: int
+    shufflehandler_log_level: HadoopLogLevel
+    ssl_setup_mode: SSLSetupMode
     only_run_testcases: List[str] = dataclasses.field(default_factory=list)
-    limit_testcases: bool = False
-    quick_mode: bool = False
-    testcase_limit: int = -1
-    enable_compilation: bool = None
-    allow_verification_failure: bool = None
-
-    mr_app_debug: bool = False
-    timeout_for_apps = 120
-    compress_tc_result: bool = False
-    decompress_app_container_logs: bool = True
-    decompress_daemon_logs: bool = True
-    shufflehandler_log_level: HadoopLogLevel = HadoopLogLevel.DEBUG # TODO Parse log level, and this is not exported at all
-    cache_built_maven_artifacts: bool = True
-    halt_execution_on_failed_job: bool = True
-    halt_execution_on_job_timeout: bool = False
-    loadgen_no_mappers: int = 4
-    loadgen_no_reducers: int = 3
-    loadgen_timeout: int = 1000
-    run_without_patch: bool = True
-    run_with_patch: bool = True
-    enable_ssl_debugging: bool = False
-    generate_empty_ssl_configs: bool = False
-    ssl_setup_mode: SSLSetupMode = SSLSetupMode.BETWEEN_EACH_TESTCASE # TODO Parse SSLSetupMode
     # TODO Implement switch that simulates an intentional job failure for given testcase names e.g. 'shuffle_ssl_enabled'
-    patch_file_path: str = str(Path.home()) + os.sep + "netty4patch.patch"
-    netty_log_message: str = "*** HADOOP-15327: netty upgrade"
-
-    force_compile: bool = False
-    sleep_after_service_restart: int = 15
 
     @classmethod
     def from_file(cls, path: str) -> 'Netty4TestConfig':
