@@ -1133,7 +1133,7 @@ class Compiler:
                                               apply_patch_file=self.context.apply_patch_file,
                                               changed_modules=hadoop_dir.get_changed_module_paths())
 
-            if not self.config.force_compilation and self._use_cache:
+            if self._use_cache:
                 hadoop_dir.extract_changed_modules(allow_empty=True)
                 if expect_changed_modules and not comp_context.changed_modules:
                     if not force_compile_if_no_changed_modules:
