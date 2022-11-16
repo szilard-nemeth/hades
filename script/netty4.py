@@ -996,7 +996,9 @@ class CompilationContext:
     def __post_init__(self):
         if not self.patch_file:
             self.patch_file = "without_patch"
-        self.patch_file_hash = FileUtils.get_hash_of_file(self.patch_file)
+            self.patch_file_hash = 999
+        else:
+            self.patch_file_hash = FileUtils.get_hash_of_file(self.patch_file)
         self.timestamp = int(time.time())
 
 
