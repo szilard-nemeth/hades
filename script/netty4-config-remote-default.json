@@ -1,0 +1,76 @@
+{
+  "onlyRunTestcases": [],
+  "limitTestcases": false,
+  "quickMode": false,
+  "testcaseLimit": 99999999,
+  "enableCompilation": true,
+  "allowVerificationFailure": false,
+  "mrAppDebug": false,
+  "compressTcResult": false,
+  "decompressAppContainerLogs": true,
+  "decompressDaemonLogs": true,
+  "shufflehandlerLogLevel": "DEBUG",
+  "cacheBuiltMavenArtifacts": true,
+  "haltExecutionOnFailedJob": true,
+  "haltExecutionOnJobTimeout": false,
+  "loadgenNoMappers": 4,
+  "loadgenNoReducers": 3,
+  "loadgenTimeout": 1000,
+  "timeoutForApps": 120,
+  "runWithoutPatch": true,
+  "runWithPatch": true,
+  "enableSslDebugging": false,
+  "generateEmptySslConfigs": false,
+  "sslSetupMode": "between_each_testcase",
+  "sleepAfterServiceRestart": 15,
+  "contexts": [
+    {
+      "name": "without netty patch on upstream Hadoop trunk",
+      "repositoryPath": "/home/systest/hadoop",
+      "remote": "origin",
+      "baseBranch": "trunk",
+      "applyPatchFile": "",
+      "enableCompilation": false,
+      "allowVerificationFailure": false,
+      "logVerifications": [
+        {
+          "roleType": "nodemanager",
+          "text": "*** HADOOP-15327: netty upgrade",
+          "invertedMode": true
+        }
+      ]
+    },
+    {
+      "name": "with netty patch on upstream Hadoop trunk",
+      "repositoryPath": "/home/systest/hadoop",
+      "remote": "origin",
+      "baseBranch": "trunk",
+      "applyPatchFile": "/home/systest/netty4-upstream.patch",
+      "enableCompilation": true,
+      "allowVerificationFailure": false,
+      "logVerifications": [
+        {
+          "roleType": "nodemanager",
+          "text": "*** HADOOP-15327: netty upgrade",
+          "invertedMode": false
+        }
+      ]
+    },
+    {
+      "name": "with netty patch on downstream Hadoop trunk",
+      "repositoryPath": "/home/systest/hadoop",
+      "remote": "downstream",
+      "baseBranch": "CDH-7.1.8.x",
+      "applyPatchFile": "/home/systest/netty4-downstream.patch",
+      "enableCompilation": true,
+      "allowVerificationFailure": false,
+      "logVerifications": [
+        {
+          "roleType": "nodemanager",
+          "text": "*** HADOOP-15327: netty upgrade",
+          "invertedMode": false
+        }
+      ]
+    }
+  ]
+}
