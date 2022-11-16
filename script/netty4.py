@@ -9,6 +9,7 @@ import time
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
+from pprint import pformat
 from typing import Callable, List, Dict, Tuple, Any
 
 from dataclasses_json import LetterCase, dataclass_json
@@ -722,6 +723,11 @@ class Netty4TestConfig:
             f.write(self.to_json(indent=4))
 
         LOG.info("Exported config file {}".format(path))
+
+    def print(self):
+        field_names = {field.name: field.type for field in dataclasses.fields(self)}
+        field_values = {fname: getattr(self, fname) for fname in field_names}
+        LOG.info("Current configuration: \n%s", pformat(field_values))
 
     def __post_init__(self):
         self.testcase_limit = 1 if self.quick_mode or self.limit_testcases else TC_LIMIT_UNLIMITED
@@ -1713,6 +1719,8 @@ class Netty4RegressionTestDriver(HadesScriptBase):
         if not os.path.exists(config_path):
             raise HadesException("The netty4.py script requires the config file to be present at: {}, but config is not found!".format(config_path))
         self.config = Netty4TestConfig.from_file(config_path)
+
+        self.config.print()
         self.output_file_writer = None
         self._tc_counter = 0
 
